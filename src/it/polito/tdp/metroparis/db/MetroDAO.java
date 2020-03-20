@@ -11,6 +11,7 @@ import com.javadocmd.simplelatlng.LatLng;
 
 import it.polito.tdp.metroparis.model.Fermata;
 import it.polito.tdp.metroparis.model.Linea;
+import it.polito.tdp.metroparis.model.PartenzaArrivo;
 
 public class MetroDAO {
 
@@ -40,6 +41,33 @@ public class MetroDAO {
 
 		return fermate;
 	}
+	
+	public boolean esisteConnessione(Fermata partenza, Fermata arrivo) {
+		
+		String sql= "SELECT COUNT(*) AS cnt\n" + 
+				"FROM connessione\n" + 
+				"WHERE id_stazP=? AND id_stazA=?";
+		
+		Connection conn= DBConnect.getConnection();
+		PreparedStatement st;
+		try {
+			st = conn.prepareStatement(sql);
+			st.setInt(1, partenza.getIdFermata());
+			st.setInt(2, arrivo.getIdFermata());
+			
+			ResultSet rs=st.executeQuery();
+			
+			rs.next();
+			int numero=rs.getInt("cnt");
+			conn.close();
+			return (numero>0);
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	
+		return false;
+	}
 
 	public List<Linea> getAllLinee() {
 		final String sql = "SELECT id_linea, nome, velocita, intervallo FROM linea ORDER BY nome ASC";
@@ -66,6 +94,55 @@ public class MetroDAO {
 		}
 
 		return linee;
+	}
+
+	public List<Fermata> stazioneArrivo(Fermata partenza) {
+		String sql= "SELECT id_stazA " + 
+				"FROM connessione " + 
+				"WHERE id_stazP=? ";
+		Connection conn=DBConnect.getConnection();
+		try {
+			PreparedStatement st = conn.prepareStatement(sql);
+			st.setInt(1, partenza.getIdFermata());
+			ResultSet rs= st.executeQuery();
+
+			
+			List<Fermata> result=new ArrayList<>();
+			while(rs.next()) {
+				result.add(new Fermata(rs.getInt("id_stazA"),null,null)); // a me serve solo l'id fermata per i miei scopi
+			}
+				conn.close();
+				return result;
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return null;
+			
+	}
+
+	public List<PartenzaArrivo> getCollegamenti() {
+		String sql= "SELECT id_stazA, id_stazP\n" + 
+				"FROM connessione ORDER BY id_stazA";
+		Connection conn=DBConnect.getConnection();
+		try {
+			PreparedStatement st = conn.prepareStatement(sql);
+			ResultSet rs= st.executeQuery();
+
+			
+			List<PartenzaArrivo> result=new ArrayList<>();
+			while(rs.next()) {
+				result.add(new PartenzaArrivo(new Fermata(rs.getInt("id_stazA"),null,null), new Fermata(rs.getInt("id_stazP"),null,null))); // a me serve solo l'id fermata per i miei scopi
+			}
+				conn.close();
+				return result;
+			
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return null;
+			
 	}
 
 
