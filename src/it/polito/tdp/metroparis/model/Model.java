@@ -7,86 +7,42 @@ import java.util.List;
 import java.util.Map;
 
 import org.jgrapht.Graph;
+import org.jgrapht.GraphPath;
 import org.jgrapht.Graphs;
+import org.jgrapht.alg.shortestpath.DijkstraShortestPath;
 import org.jgrapht.event.ConnectedComponentTraversalEvent;
 import org.jgrapht.event.EdgeTraversalEvent;
 import org.jgrapht.event.TraversalListener;
 import org.jgrapht.event.VertexTraversalEvent;
 import org.jgrapht.graph.DefaultEdge;
+import org.jgrapht.graph.DefaultWeightedEdge;
 import org.jgrapht.graph.SimpleDirectedGraph;
+import org.jgrapht.graph.SimpleDirectedWeightedGraph;
 import org.jgrapht.traverse.BreadthFirstIterator;
 import org.jgrapht.traverse.DepthFirstIterator;
 import org.jgrapht.traverse.GraphIterator;
+
+import com.javadocmd.simplelatlng.LatLngTool;
+import com.javadocmd.simplelatlng.util.LengthUnit;
 
 import it.polito.tdp.metroparis.db.MetroDAO;
 
 public class Model {
 	
-	private class EdgeTraversedGraphListener implements TraversalListener<Fermata,DefaultEdge> {
-
-		@Override
-		public void connectedComponentFinished(ConnectedComponentTraversalEvent arg0) {
-			// TODO Auto-generated method stub
-			
-		}
-
-		@Override
-		public void connectedComponentStarted(ConnectedComponentTraversalEvent arg0) {
-			// TODO Auto-generated method stub
-			
-		}
-
-		@Override
-		public void edgeTraversed(EdgeTraversalEvent<DefaultEdge> ev) {
-			//ci interessa il cammino, perciò ogni volta che creo un nuovo arco da un nodo in cui mi trovo è necessario salvare qualche informazione
-			//voglio tenere traccia per ogni vertice, qual è il vertice precedente, per immagazzinare questa informazione
-			//creo una mappa che abbia la chiave la fermata figlia e il valore la fermata padre.
-			// necessario che padre sia stato visitato, ma figlio ancora sconosciuto
-			
-			Fermata sourceVertex=grafo.getEdgeSource(ev.getEdge());
-			Fermata targetVertex=grafo.getEdgeTarget(ev.getEdge());
-			//se il grafo e' orientato, allora sono sicuro che la source e' il padre e il target e' il figlo
-			// se il grafo non e' orientato, potrebbe essere il contrario, magari ho gia' visto in un verso quell'arco e adesso sto ricapitando nel verso opposto
-			// er capire se quell'arco l'ho gia' visitato vado a vedere se il nodo che penso possa essere figlio e' gia' inserito nella mappa
-			
-			if(!backVisit.containsKey(targetVertex) && backVisit.containsKey(sourceVertex)) {
-				//affinchè sia un nuovo arco, la mappa deve contenere la source (il padre) (in teoria questo dovrebbe accadere sempre, perche' altrimenti
-				//non potrei vedere proprio l'arco) e NON contenere la destinazione (il figlio)
-				backVisit.put(targetVertex, sourceVertex);
-			} else if(!backVisit.containsKey(sourceVertex) && backVisit.containsKey(targetVertex)) { //SOLO NEL CASO DI ARCHI NON ORIENTATI
-				backVisit.put(sourceVertex,targetVertex);
-			}		
-		}
-		
-
-		@Override
-		public void vertexFinished(VertexTraversalEvent<Fermata> arg0) {
-			// TODO Auto-generated method stub
-			
-		}
-
-		@Override
-		public void vertexTraversed(VertexTraversalEvent<Fermata> arg0) {
-			// TODO Auto-generated method stub
-			
-		}
-		
-	}
-	
-	private Graph<Fermata,DefaultEdge> grafo;
+	private Graph<Fermata,DefaultWeightedEdge> grafo;
 	private Graph<Fermata,DefaultEdge> grafo2;
 	private List<Fermata> fermate;
 	private Map<Fermata,Fermata> backVisit;
 	public void creaGrafo() {
 		//Creo il grafo
-		this.grafo=new SimpleDirectedGraph<>(DefaultEdge.class);
-		this.grafo2=new SimpleDirectedGraph<>(DefaultEdge.class);
+		this.grafo=new SimpleDirectedWeightedGraph<>(DefaultWeightedEdge.class);
+		//this.grafo2=new SimpleDirectedGraph<>(DefaultEdge.class);
 		
 		//aggiungo i vertici
 		MetroDAO dao= new MetroDAO();
 		this.fermate=dao.getAllFermate();
 		Graphs.addAllVertices(this.grafo, this.fermate);
-		Graphs.addAllVertices(this.grafo2, this.fermate);
+		//Graphs.addAllVertices(this.grafo2, this.fermate);
 		/*
 		//Aggiungi gli archi
 		for(Fermata partenza: this.grafo.vertexSet()) {
@@ -101,21 +57,38 @@ public class Model {
 		
 		for(Fermata partenza: this.grafo.vertexSet()) {
 			List<Fermata> arrivi= dao.stazioneArrivo(partenza);
+			
 			for(Fermata arrivo: arrivi) {
 				int temp=this.fermate.indexOf(arrivo);
 				this.grafo.addEdge(partenza, this.fermate.get(temp)); //dato una fermata, prendo tutte le stazioni a cui essa e' collegata
+			//posso anche decidere di inserire direttamente il peso invece di farlo dopo
 			}
+		}
+			
+			//aggiungi pesi agli archi
+			List<ConnessioneVelocita> archipesati =dao.getConnVel();
+			HashMap<Integer,Fermata> mappaFermate= new HashMap<Integer,Fermata>();
+			for(Fermata f: fermate) {
+				mappaFermate.put(f.getIdFermata(), f);
+			}
+			for(ConnessioneVelocita cp: archipesati) {
+				Fermata partenza=mappaFermate.get(cp.getStazP());
+				Fermata arrivo=mappaFermate.get(cp.getStazA());
+				double distanza= LatLngTool.distance(partenza.getCoords(), arrivo.getCoords(), LengthUnit.KILOMETER);
+				double peso=distanza/cp.getVelocita() *3600; //tempo in secondi
+				grafo.setEdgeWeight(partenza, arrivo, peso);
+			
 		}
 		
 		
 		//opzione 3
 		
-		List<PartenzaArrivo> collegamenti=dao.getCollegamenti();
+		/* List<PartenzaArrivo> collegamenti=dao.getCollegamenti();
 		for(PartenzaArrivo temp: collegamenti) {
 			int part=fermate.indexOf(temp.getPartenza());
 			int arr=fermate.indexOf(temp.getArrivo());
 			this.grafo2.addEdge(fermate.get(part), fermate.get(arr));
-		}
+		} */
 		
 		
 	}
@@ -125,12 +98,12 @@ public class Model {
 		
 		List<Fermata> result = new ArrayList<Fermata>();
 		backVisit= new HashMap<>();
-		GraphIterator<Fermata,DefaultEdge> it=new BreadthFirstIterator<>(this.grafo, source); // crea un nuovo iteratore e lo associa a questo grafo
+		GraphIterator<Fermata,DefaultWeightedEdge> it=new BreadthFirstIterator<>(this.grafo, source); // crea un nuovo iteratore e lo associa a questo grafo
 	// per scegliere quale sia il nodo in cui deve iniziare glielo devo specificare nel secondo parametro
 		
 		//GraphIterator<Fermata,DefaultEdge> it=new DepthFirstIterator<>(this.grafo, source); //modo diverso di visitare il grafico
 		
-		it.addTraversalListener(new Model.EdgeTraversedGraphListener());
+		it.addTraversalListener(new EdgeTraverseGraphListener(grafo, backVisit));
 				
 		backVisit.put(source, null); // devo dargli un nodo da cui partire
 		while(it.hasNext()) {
@@ -153,7 +126,7 @@ public class Model {
 		return percorso;
 	}
 		
-	public Graph<Fermata, DefaultEdge> getGrafo() {
+	public Graph<Fermata, DefaultWeightedEdge> getGrafo() {
 		return grafo;
 	}
 	
@@ -165,6 +138,13 @@ public class Model {
 
 	public List<Fermata> getFermate() {
 		return fermate;
+	}
+	
+	public List<Fermata> getCamminoMinimo (Fermata partenza, Fermata arrivo) {
+		DijkstraShortestPath<Fermata, DefaultWeightedEdge> dijkstra = new DijkstraShortestPath<Fermata, DefaultWeightedEdge>(this.grafo);
+		GraphPath<Fermata, DefaultWeightedEdge> path= dijkstra.getPath(partenza,arrivo);
+		return path.getVertexList();
+		 
 	}
 	
 	

@@ -8,14 +8,15 @@ import org.jgrapht.event.EdgeTraversalEvent;
 import org.jgrapht.event.TraversalListener;
 import org.jgrapht.event.VertexTraversalEvent;
 import org.jgrapht.graph.DefaultEdge;
+import org.jgrapht.graph.DefaultWeightedEdge;
 
-public class EdgeTraverseGraphListener implements TraversalListener<Fermata, DefaultEdge> {
+public class EdgeTraverseGraphListener implements TraversalListener<Fermata, DefaultWeightedEdge> {
 //HO INSERITO QUESTA CLASSE COME SOTTOCLASSE DEL MODEL
 	Map<Fermata,Fermata> back;
-	Graph<Fermata,DefaultEdge> grafo; //l'iteratore non conosce il grafo su cui sta lavorando
+	Graph<Fermata,DefaultWeightedEdge> grafo; //l'iteratore non conosce il grafo su cui sta lavorando
 	
 	
-	public EdgeTraverseGraphListener(Graph<Fermata,DefaultEdge> grafo, Map<Fermata, Fermata> back) {
+	public EdgeTraverseGraphListener(Graph<Fermata,DefaultWeightedEdge> grafo, Map<Fermata, Fermata> back) {
 		super();
 		this.back = back;
 		this.grafo=grafo;
@@ -33,7 +34,7 @@ public class EdgeTraverseGraphListener implements TraversalListener<Fermata, Def
 	}
 
 	@Override
-	public void edgeTraversed(EdgeTraversalEvent<DefaultEdge> ev) {
+	public void edgeTraversed(EdgeTraversalEvent<DefaultWeightedEdge> ev) {
 		//ci interessa il cammino, perciò ogni volta che creo un nuovo arco da un nodo in cui mi trovo è necessario salvare qualche informazione
 		//voglio tenere traccia per ogni vertice, qual è il vertice precedente, per immagazzinare questa informazione
 		//creo una mappa che abbia la chiave la fermata figlia e il valore la fermata padre.
